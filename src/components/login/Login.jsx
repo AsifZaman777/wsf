@@ -34,7 +34,7 @@ const Login = () => {
       if (response.status === 'success') {
         setIsLoggedIn(true);
         setSocketUrl('ws://localhost:8080'); // Open persistent WebSocket connection
-        loginSocket.close(); // Close temporary login WebSocket
+      
       } else {
         loginSocket.close(); // Close on error too
       }
