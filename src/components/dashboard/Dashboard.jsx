@@ -1,100 +1,104 @@
 import React, { useState, useEffect } from 'react';
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import { useLocation } from 'react-router-dom';
+import { useWebSocketContext } from '../../context/WebSocketContext';
 
 const Dashboard = () => {
-  const socketUrl = 'ws://localhost:8080';
-  const { sendJsonMessage, lastMessage, readyState, getWebSocket } = useWebSocket(socketUrl, {
-    shouldReconnect: (closeEvent) => false,
-    manual: true,
-  });
+  const location = useLocation();
+  const { username } = location.state || {};
+  const { connectionStatus, lastMessage, sendMessage } = useWebSocketContext();
 
-  const [message, setMessage] = useState('');
+  const [chatMessage, setChatMessage] = useState('');
   const [messages, setMessages] = useState([]);
-  const [username, setUsername] = useState('');
 
-  // Load username on initial render
+  // Update messages list when a new WebSocket message arrives
   useEffect(() => {
-    const storedUsername = localStorage.getItem('username') || 'Guest';
-    setUsername(storedUsername);
-  }, []);
-
-  // Disconnect WebSocket
-  const handleDisconnect = () => {
-    const socket = getWebSocket();
-    if (socket) {
-      socket.close();
-    }
-  };
-
-  // Send a message to WebSocket server
-  const handleSendMessage = () => {
-    if (message.trim() !== '') {
-      const outgoingMessage = { username, message };
-      sendJsonMessage(outgoingMessage);
-      setMessage(''); // Clear the input field after sending
-    }
-  };
-
-  // Capture and display the latest message received from the server
-  useEffect(() => {
-    if (lastMessage !== null) {
-      try {
-        const incomingMessage = JSON.parse(lastMessage.data);
-        console.log('Incoming message:', incomingMessage);
-        if (incomingMessage && incomingMessage.username && incomingMessage.message) {
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            `${incomingMessage.username}: ${incomingMessage.message}`,
-          ]);
-        }
-      } catch (error) {
-        console.error('Error parsing incoming message:', error);
-      }
+    if (lastMessage) {
+      const newMessage = JSON.parse(lastMessage.data);
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
     }
   }, [lastMessage]);
 
-  const connectionStatusMap = {
-    [ReadyState.CONNECTING]: 'Connecting...',
-    [ReadyState.OPEN]: 'Connected',
-    [ReadyState.CLOSING]: 'Closing...',
-    [ReadyState.CLOSED]: 'Closed',
-    [ReadyState.UNINSTANTIATED]: 'Uninstantiated',
-  }[readyState];
+  // Handle sending messages
+  const handleSendMessage = () => {
+    if (chatMessage.trim()) {
+      const messageData = {
+        type: 'chat',
+        username: username || 'Guest',
+        message: chatMessage,
+      };
+      sendMessage(JSON.stringify(messageData));
+      setChatMessage(''); // Clear the input field
+    }
+  };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Welcome to the Dashboard, {username || 'Guest'}!</h2>
+    <div>
+      <h2>Welcome, {username ? username : 'Guest'}!</h2>
+      <p>WebSocket Status: {connectionStatus}</p>
+
       <div>
-        <button onClick={handleDisconnect}>Disconnect from WebSocket</button>
-      </div>
+        <h3>Chat</h3>
+        <div
+          style={{
+            border: '1px solid #ccc',
+            padding: '10px',
+            height: '300px',
+            overflowY: 'scroll',
+            marginBottom: '10px',
+          }}
+        >
+          {messages.length > 0 ? (
+            messages.map((msg, index) => {
+              const isCurrentUser = msg.username === username;
+              const messageTime = new Date().toLocaleTimeString();
+              return (
+                <div
+                  key={index}
+                  style={{
+                    padding: '8px',
+                    backgroundColor: isCurrentUser ? '#d1f7d1' : '#f1f1f1',
+                    borderRadius: '5px',
+                    marginBottom: '5px',
+                    textAlign: isCurrentUser ? 'left' : 'right', // Align the current user's message to the left
+                    marginLeft: isCurrentUser ? '0' : '20px', // Align to the left for current user
+                    marginRight: isCurrentUser ? '20px' : '0', // Align to the right for others
+                  }}
+                >
+                  <strong>{msg.username}</strong> ({messageTime}): {msg.message}
+                </div>
+              );
+            })
+          ) : (
+            <p>No messages yet</p>
+          )}
+        </div>
 
-      <div style={{ marginTop: '20px', color: connectionStatusMap === 'Connected' ? 'green' : 'red' }}>
-        {connectionStatusMap}
-      </div>
-
-      <h3>Chat Panel</h3>
-      <textarea
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type your message"
-        style={{ width: '100%', height: '100px' }}
-      />
-      <button onClick={handleSendMessage} disabled={readyState !== ReadyState.OPEN}>
-        Send Message
-      </button>
-
-      <h4>Messages</h4>
-      <div
-        style={{
-          border: '1px solid #ccc',
-          padding: '10px',
-          maxHeight: '200px',
-          overflowY: 'scroll',
-        }}
-      >
-        {messages.map((msg, index) => (
-          <p key={index}>{msg}</p>
-        ))}
+        <input
+          type="text"
+          placeholder="Type a message..."
+          value={chatMessage}
+          onChange={(e) => setChatMessage(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+          style={{
+            width: '80%',
+            padding: '5px',
+            marginRight: '10px',
+            borderRadius: '5px',
+            border: '1px solid #ccc',
+          }}
+        />
+        <button
+          onClick={handleSendMessage}
+          style={{
+            padding: '5px 10px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            borderRadius: '5px',
+            border: 'none',
+          }}
+        >
+          Send
+        </button>
       </div>
     </div>
   );

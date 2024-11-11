@@ -1,9 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./components/dashboard/Dashboard";
 import Login from "./components/login/Login";
+import { WebSocketProvider } from "./context/WebSocketContext";
 
 const App = () => {
   return (
+    <WebSocketProvider>
     <Router>
       <div>
         <Routes>
@@ -12,6 +14,7 @@ const App = () => {
         </Routes>
       </div>
     </Router>
+    </WebSocketProvider>
   );
 };
 
